@@ -2,6 +2,7 @@
 #define Xbus_h
 
 #include <Arduino.h>
+#include <Wire.h>
 #include <math.h>
 
 //Definition of opcodes: For more information on opcodes, refer to https://mtidocs.xsens.com/functional-description$mtssp-synchronous-serial-protocol
@@ -14,25 +15,41 @@ class Xbus {
   public:
     Xbus();
 
-    enum MesID {WAKEUP = 0x3E, GOTOCONFIGACK = 0x31, GOTOMEASUREMENTACK = 0x11, REQDID = 0x00, DEVICEID = 0x01, REQPRODUCTCODE = 0x1C,
-                PRODUCTCODE = 0x1D, REQFWREV = 0x12, FIRMWAREREV = 0x13, ERROR = 0x42, WARNING = 0x43, OUTPUTCONFIGURATION = 0xC1, MTDATA2 = 0x36
+    enum MesID {WAKEUP = 0x3E, 
+                GOTOCONFIGACK = 0x31, 
+                GOTOMEASUREMENTACK = 0x11, 
+                REQDID = 0x00, 
+                DEVICEID = 0x01, 
+                REQPRODUCTCODE = 0x1C,
+                PRODUCTCODE = 0x1D, 
+                REQFWREV = 0x12, 
+                FIRMWAREREV = 0x13, 
+                ERROR = 0x42, 
+                WARNING = 0x43, 
+                OUTPUTCONFIGURATION = 0xC1, 
+                MTDATA2 = 0x36,
                };
 
-    enum DataID {EULERANGLES = 0x2030, ACCELERATION = 0x4020, RATEOFTURN = 0x8020, LATLON = 0x5040};
+    enum DataID {QUATERNION = 0x2018,
+                 ACCELERATION = 0x4028, 
+                 RATEOFTURN = 0x8028, 
+                 MAG = 0xC028};
 
-    bool read(uint8_t address);
+    bool read(uint8_t address, bool verbose=false);
 
-    float euler[3];                                             //Used to store latest EulerAngle reading
-    float acc[3];                                               //Used to store latest Acceleration reading
-    float rot[3];                                               //Used to store latest RateOfTurn reading
-    float latlon[2];                                            //Used to store latest Latitude/Longitude reading
+    // float euler[3];                                             //Used to store latest EulerAngle reading
+    float quat[4] = {NAN};
+    float acc[3] = {NAN};                                               //Used to store latest Acceleration reading
+    float rot[3] = {NAN};                                               //Used to store latest RateOfTurn reading
+    float mag[3] = {NAN};
+    // float latlon[2];                                            //Used to store latest Latitude/Longitude reading
     bool configState;                                           //True if MTi is in Config mode, false if MTi is in Measurement mode
     char productCode;                                           //Contains the product code (MTi-#) of the connected device
 
   private:
-    void readPipeStatus(uint8_t address);
-    void readPipeNotif(uint8_t address);
-    void readPipeMeas(uint8_t address);
+    void readPipeStatus(uint8_t address, bool verbose=false);
+    void readPipeNotif(uint8_t address, bool verbose=false);
+    void readPipeMeas(uint8_t address, bool verbose=false);
     void parseMTData2(uint8_t* data, uint8_t datalength);
     void parseNotification(uint8_t* data);
 
