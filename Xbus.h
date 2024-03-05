@@ -55,9 +55,9 @@ class Xbus {
 
     void dataswapendian(uint8_t* data, uint8_t length);
 
-    uint8_t status[4];                                            //Used to store indicators of the Status Pipe
-    uint8_t datanotif[256];                                       //Used to store content read from the Notification Pipe
-    uint8_t datameas[256];                                        //Used to store content read from the Measurement Pipe
+    uint8_t status[4] = {};                                            //Used to store indicators of the Status Pipe
+    uint8_t datanotif[256] = {};                                       //Used to store content read from the Notification Pipe
+    uint8_t datameas[256] = {};                                        //Used to store content read from the Measurement Pipe
 
     uint16_t notificationSize;
     uint16_t measurementSize;

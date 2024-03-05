@@ -2,21 +2,23 @@
 #define MTi_h
 
 #include "Xbus.h"
-#include "Wire.h"
+#include <Wire.h>
 
 class MTi
 {
 public:
   MTi(uint8_t x, uint8_t y);
-  uint8_t drdy;
-  uint8_t address;
-  bool detect(uint16_t timeout);
-  void requestDeviceInfo();
-  void configureOutputs();
-  void goToConfig();
-  void goToMeasurement();
+  uint8_t drdy_;
+  uint8_t address_;
+  bool detect(uint16_t timeout, bool verbose = false);
+  void requestDeviceInfo(bool verbose = false);
+  void configureOutputs(uint16_t freq, bool verbose = false);
+  void requestOutputs(bool verbose = false);
+  void goToConfig(bool verbose = false);
+  void goToMeasurement(bool verbose = false);
   void readMessages(bool verbose = false);
   void printData();
+
   float *getQuat()
   {
     return xbus.quat;

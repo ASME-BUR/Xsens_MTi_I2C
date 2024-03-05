@@ -29,7 +29,7 @@ void Xbus::readPipeStatus(uint8_t address, bool verbose)
 {
   Wire1.beginTransmission(address);
   Wire1.write(XSENS_STATUS_PIPE);
-  Wire1.endTransmission();
+  Wire1.endTransmission(false);
 
   Wire1.requestFrom(address, uint8_t(4));
   if (Wire1.available() > 0)
@@ -50,48 +50,81 @@ void Xbus::readPipeStatus(uint8_t address, bool verbose)
     Serial.print(measurementSize);
     Serial.println();
   }
+  Wire1.endTransmission(true);
 }
 
 void Xbus::readPipeNotif(uint8_t address, bool verbose)
 {
   Wire1.beginTransmission(address);
   Wire1.write(XSENS_NOTIF_PIPE);
-  Wire1.endTransmission();
+  Wire1.endTransmission(false);
 
-  Wire1.requestFrom(address, notificationSize);
+  Wire1.requestFrom((int)address, (int)notificationSize);
   if (Wire1.available() > 0)
   {
-    for (int i = 0; i < notificationSize; ++i)
+    for (uint16_t i = 0; i < notificationSize; i++)
     {
       datanotif[i] = Wire1.read();
       if (verbose)
       {
-        Serial.print(datameas[i], HEX);
+        Serial.print(datanotif[i], HEX);
         Serial.print(" ");
       }
     }
+    if (verbose)
+    {
+      Serial.println();
+    }
   }
+  Wire1.endTransmission(true);
 }
 
 void Xbus::readPipeMeas(uint8_t address, bool verbose)
 {
   Wire1.beginTransmission(address);
   Wire1.write(XSENS_MEAS_PIPE);
-  Wire1.endTransmission();
-
-  Wire1.requestFrom(address, measurementSize);
-  if (Wire1.available() > 0)
+  Wire1.endTransmission(false);
+  uint16_t remainder = measurementSize % 32;
+  for (uint16_t i = 0; i < measurementSize / 32; i++)
   {
-    for (int i = 0; i < measurementSize; ++i)
+    Wire1.requestFrom((int)address, 32);
+    if (Wire1.available() > 0)
     {
-      datameas[i] = Wire1.read();
+      for (uint16_t j = 0; j < 32; j++)
+      {
+        datameas[i*32+j] = Wire1.read();
+        if (verbose)
+        {
+          Serial.print(datameas[i*32+j], HEX);
+          Serial.print(" ");
+        }
+      }
       if (verbose)
       {
-        Serial.print(datameas[i], HEX);
-        Serial.print(" ");
+        Serial.println();
       }
     }
   }
+  Wire1.requestFrom((int)address, remainder);
+  if (Wire1.available() > 0)
+  {
+    int start = measurementSize - remainder - 1;
+    for (uint16_t i = 0; i < remainder; i++)
+    {
+      datameas[start + i] = Wire1.read();
+      if (verbose)
+      {
+        Serial.print(datameas[start + i], HEX);
+        Serial.print(" ");
+      }
+    }
+    if (verbose)
+    {
+      Serial.println();
+    }
+  }
+
+  Wire1.endTransmission(true);
 }
 
 void Xbus::parseMTData2(uint8_t *data, uint8_t datalength)

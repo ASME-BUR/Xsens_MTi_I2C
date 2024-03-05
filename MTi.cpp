@@ -1,24 +1,24 @@
 #include "MTi.h"
 
-MTi::MTi(uint8_t x, uint8_t y) : xbus()
+MTi::MTi(uint8_t address, uint8_t drdy) : xbus()
 {
-  address = x;
-  drdy = y;
-  Wire1.begin();         // Initialize Wire1 library for I2C communication
-  pinMode(drdy, INPUT); // Data Ready pin, indicates whether data/notifications are available to be read
+  address_ = address;
+  drdy_ = drdy;
+  // Wire1.begin();         // Initialize Wire1 library for I2C communication
+  // pinMode(drdy_, INPUT); // Data Ready pin, indicates whether data/notifications are available to be read
 }
 
-bool MTi::detect(uint16_t timeout)
+bool MTi::detect(uint16_t timeout, bool verbose)
 {
   // Send goToConfig messages until goToConfigAck is received from the device
   Serial.println("Scanning for MTi.");
   long int starttime = millis();
   while ((millis() - starttime) < timeout)
   {
-    goToConfig();
+    goToConfig(verbose);
     delay(250);
 
-    readMessages();
+    readMessages(verbose);
     if (xbus.configState)
     {
       Serial.println("Device detected.");
@@ -29,74 +29,86 @@ bool MTi::detect(uint16_t timeout)
   return false;
 }
 
-void MTi::configureOutputs()
+void MTi::configureOutputs(uint16_t freq, bool verbose)
 {
   // Configure the outputs of the MTi using Xbus commands. Refer to the MT Low Level Communication Protocol Document for more information on the commands used here:
   // https://mtidocs.xsens.com/mt-low-level-communication-protocol-documentation
 
   if (!xbus.configState)
   {
-    goToConfig();
-    delay(1000);
+    goToConfig(verbose);
+    delay(100);
   }
+  uint8_t high = (uint8_t)((freq & 0xFF00) >> 8);
+  uint8_t low = (uint8_t)(freq & 0x00FF);
   readMessages(); // Clear the measurement/notification pipes (without printing) before configuring.
-  if (xbus.productCode == '3')
-  { // MTi-3 AHRS
-    Serial.println("Configuring Acceleration, Rate of Turn, Quaternion, Mag FIeld at 100 Hz");
-    uint8_t outputConfig[] = {0xC0, 0x10, 0x40, 0x28, 0x00, 0x1E, 0x80, 0x28, 0x00, 0x1E, 0xC0, 0x28, 0x00, 0x1E, 0x20, 0x18, 0x00, 0x1E};
-    sendMessage(outputConfig, sizeof(outputConfig));
-  }
-  else
-  {
-    Serial.println("Could not configure device. Device's product code is unknown.");
-  }
-  delay(1000);
+  Serial.println("Configuring Acceleration, Rate of Turn, Quaternion, Mag FIeld at 100 Hz");
+  uint8_t outputConfig[] = {0xC0, 0x10, 0x40, 0x28, high, low, 0x80, 0x28, high, low, 0xC0, 0x28, high, low, 0x20, 0x18, high, low};
+  sendMessage(outputConfig, sizeof(outputConfig), verbose);
+  delay(100);
   readMessages();
 }
 
-void MTi::requestDeviceInfo()
+void MTi::requestOutputs(bool verbose)
+{
+  if (verbose)
+  {
+    Serial.println("Current Output Configuration is: ");
+  }
+  uint8_t requestOutputs[] = {0xC0, 0x00}; // requestOutputs Xbus message
+  sendMessage(requestOutputs, sizeof(requestOutputs), verbose);
+  delay(100);
+
+  readMessages(verbose);
+}
+
+void MTi::requestDeviceInfo(bool verbose)
 {
   // Request device info from the MTi using Xbus commands. Refer to the MT Low Level Communication Protocol Document for more information on the commands used here:
   // https://mtidocs.xsens.com/mt-low-level-communication-protocol-documentation
 
   if (!xbus.configState)
   {
-    goToConfig();
-    delay(1000);
+    goToConfig(verbose);
   }
-  readMessages(); // Clear the measurement/notification pipes (without printing) before configuring.
-  Serial.println("Requesting device info...");
-
+  readMessages(verbose); // Clear the measurement/notification pipes (without printing) before configuring.
+  if (verbose)
+  {
+    Serial.println("Requesting device info...");
+  }
   uint8_t reqProductCode[] = {0x1C, 0x00}; // reqProductCode Xbus message
-  sendMessage(reqProductCode, sizeof(reqProductCode));
-  delay(1000);
+  sendMessage(reqProductCode, sizeof(reqProductCode), verbose);
+  delay(100);
 
-  readMessages();
+  readMessages(verbose);
 
   uint8_t reqFWRev[] = {0x12, 0x00}; // reqFWRev Xbus message
-  sendMessage(reqFWRev, sizeof(reqFWRev));
-  delay(1000);
+  sendMessage(reqFWRev, sizeof(reqFWRev), verbose);
+  delay(100);
 
-  readMessages();
+  readMessages(verbose);
 }
 
-void MTi::goToConfig()
+void MTi::goToConfig(bool verbose)
 {
   Serial.println("Entering configuration mode.");
   uint8_t goToConfig[] = {0x30, 0x00}; // goToConfig Xbus message
-  sendMessage(goToConfig, sizeof(goToConfig));
+  sendMessage(goToConfig, sizeof(goToConfig), verbose);
+  delay(100);
+  readMessages(verbose);
 }
 
-void MTi::goToMeasurement()
+void MTi::goToMeasurement(bool verbose)
 {
   Serial.println("Entering measurement mode.");
   uint8_t goToMeas[] = {0x10, 0x00}; // goToMeasurement Xbus message
-  sendMessage(goToMeas, sizeof(goToMeas));
+  sendMessage(goToMeas, sizeof(goToMeas), verbose);
+  delay(100);
+  readMessages(verbose);
 }
 
 void MTi::sendMessage(uint8_t *message, uint8_t numBytes, bool verbose)
 {
-  verbose = true;
   // Compute the checksum for the Xbus message to be sent. See https://mtidocs.xsens.com/messages for details.
   uint8_t checksum = 0x01;
   for (int i = 0; i < numBytes; i++)
@@ -114,18 +126,18 @@ void MTi::sendMessage(uint8_t *message, uint8_t numBytes, bool verbose)
     }
     Serial.println();
   }
-  Wire1.beginTransmission(address);
+  Wire1.beginTransmission(address_);
   Wire1.write(XSENS_CONTROL_PIPE); // Send the opcode before sending the Xbus command
   Wire1.write(message, numBytes + 1);
-  Wire1.endTransmission();
-  readMessages(true);
+  Wire1.endTransmission(true);
+  readMessages(verbose);
 }
 
 void MTi::readMessages(bool verbose)
 { // read new messages until measurement/notification pipes are empty
-  while (digitalRead(drdy))
+  while (digitalRead(drdy_))
   {
-    xbus.read(address, true);
+    xbus.read(address_, true);
   }
 }
 
